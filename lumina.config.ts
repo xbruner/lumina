@@ -5,11 +5,11 @@ import type { LuminaConfig } from "@/lib/config";
 
 const config: LuminaConfig = {
   artist: {
-    name: "Artist Name",
+    name: "Death Beach",
   },
 
   album: {
-    title: "Title",
+    title: "Beautiful Nothing",
   },
 
   theme: {
@@ -22,8 +22,8 @@ const config: LuminaConfig = {
   tracks: [
     {
       id: "track-01",
-      title: "track one",
-      src: "/tracks/track1.mp3",
+      title: "Wayfaring Stranger",
+      src: "/tracks/Wayfairing_Vocals.mp3",
       visual: {
         type: "reactive",
         scene: "translation",
@@ -31,14 +31,37 @@ const config: LuminaConfig = {
     },
     {
       id: "track-02",
-      title: "track two",
-      src: "/tracks/track2.mp3",
+      title: "Grateful",
+      src: "/tracks/Grateful.mp3",
       visual: {
         type: "reactive",
         scene: "particles",
       },
+    },
+    {
+      id: "track-03",
+      title: "Trap(ped)",
+      src: "/tracks/Trap(ped).mp3",
+      visual: {
+        type: "reactive",
+        scene: "dimensional",
+      },
+    },
+    {
+      id: "track-04",
+      title: "Drunk On The Mic by Mickey Shiloh (DOTM Remix)",
+      src: "/tracks/DrunkOnTheMic_21.mp3",
+      visual: {
+        type: "reactive",
+        scene: "mandala",
+      },
+      lyrics: {
+        type: "timed",
+        src: "/lyrics/track4.lrc",
+      },
     }
   ],
+  storeUrl: "https://www.deathbeachstudio.com/",
 
   features: {
     showPlaylist: true,
