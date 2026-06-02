@@ -7,7 +7,7 @@
 import * as readline from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import { execSync } from "node:child_process";
-import { writeFileSync } from "node:fs";
+import { writeFileSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { platform } from "node:os";
@@ -291,18 +291,46 @@ await askYesNo("Done adding your files?", true);
 // the music on iPhone Safari (where Web Audio's live AnalyserNode would
 // silence audio when the silent switch is on).
 //
-// Idempotent: tracks whose .bin is already up-to-date are skipped.  Failures
-// for individual tracks are non-fatal (audio still plays; visualizer falls
-// back to stillness for that track).
+// Retries up to 3 times and verifies that every expected .frames.bin file
+// was actually produced.  Exits with a hard error if analysis still fails
+// after all attempts — a silent failure here breaks the visualizer.
 if (audioTracks.length > 0) {
+  const expectedBins = audioTracks.map((t) =>
+    join(ROOT, "public/tracks", `${t.audioFile}.frames.bin`)
+  );
+
+  function allBinsExist() {
+    return expectedBins.every((p) => existsSync(p));
+  }
+
   print("");
   header("Analyzing your audio");
   dim("  This produces the data the visualizer reacts to. ~1 second per minute of music.");
-  try {
-    execSync("node scripts/analyze-tracks.mjs", { cwd: ROOT, stdio: "inherit" });
-  } catch {
-    warn("Audio analysis hit an error. Audio will still play; visualizer may be quiet.");
-    warn("You can re-run analysis any time with:  npm run analyze");
+
+  const MAX_ATTEMPTS = 3;
+  let attempt = 0;
+  let analysisOk = false;
+
+  while (attempt < MAX_ATTEMPTS && !analysisOk) {
+    attempt++;
+    if (attempt > 1) {
+      print(`  Retrying analysis (attempt ${attempt} of ${MAX_ATTEMPTS})…`);
+    }
+    try {
+      execSync("node scripts/analyze-tracks.mjs", { cwd: ROOT, stdio: "inherit" });
+    } catch {
+      // execSync threw — the script itself crashed; loop will retry.
+    }
+    analysisOk = allBinsExist();
+  }
+
+  if (!analysisOk) {
+    print("");
+    print("\x1b[31m✗ Audio analysis failed after 3 attempts.\x1b[0m");
+    print("\x1b[31m  The visualizer will not react to your music.\x1b[0m");
+    print("\x1b[31m  Fix the error above, then run:  npm run analyze\x1b[0m");
+    rl.close();
+    process.exit(1);
   }
 }
 
