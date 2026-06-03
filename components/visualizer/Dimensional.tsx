@@ -328,7 +328,7 @@ export default function HexTerrainCyanOrbScene({
 
       <PerspectiveCamera
         makeDefault
-        position={[0, 180, 300]}
+        position={[0, 40, 300]}
         fov={70}
         // Passing the Vector3 directly satisfies the lookAt signature
         onUpdate={(self) => self.lookAt(sceneCenter)}

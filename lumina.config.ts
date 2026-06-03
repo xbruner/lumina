@@ -26,7 +26,7 @@ const config: LuminaConfig = {
       src: "/tracks/Wayfairing_Vocals.mp3",
       visual: {
         type: "reactive",
-        scene: "flower",
+        scene: "translation",
       },
     },
     {
@@ -35,7 +35,7 @@ const config: LuminaConfig = {
       src: "/tracks/Grateful.mp3",
       visual: {
         type: "reactive",
-        scene: "particles",
+        scene: "flower",
       },
     },
     {

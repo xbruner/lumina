@@ -131,10 +131,11 @@ export default function Flower({ audioData }: { audioData: Uint8Array | null }) 
         vec3 pos = mix(position, aGerm, morph1);
         pos = mix(pos, aFlower, morph2);
 
-        if (uTime > 25.0) {
-          float wave = sin(length(pos.xy) * 0.8 - uTime) * 1.5;
-          pos.z += wave * uAudioActive * (1.0 + uBass) * uBreath;
-        }
+        // Smooth activation over 3s — keeps the original wave character while
+        // preventing the hard if(>25) snap from the initial sequence.
+        float waveActive = smoothstep(24.0, 27.0, uTime);
+        float wave = sin(length(pos.xy) * 0.8 + uTime) * 1.5;
+        pos.z += wave * waveActive * uAudioActive * (1.0 + uBass) * uBreath;
 
         if (uAudioActive > 0.0 && uBass > 0.45) {
            float trigger = step(0.96, fract(aRandom * 100.0 + uTime * 2.0));
