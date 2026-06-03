@@ -17,7 +17,7 @@ const SCENE_CONFIG = {
     target: [0, 0, 0] as [number, number, number],   
   },
   expansion: {
-    core: 0.4,    
+    core: 0.7,    
     terrain: 0.8, 
     vapor: 1.0,   
   }
@@ -103,7 +103,8 @@ function CorePulse({
       
       float noise = sin(dir.x * 6.0 + uTime * 2.0) * cos(dir.y * 6.0 - uTime) * sin(dir.z * 6.0 + uTime * 1.5);
       
-      float expansion = ((uBass * 5.0) + (noise * uBass * 3.0)) * uExpLimit;
+      // Expansion driven by highs — large baseline always separates sphere; highs push it way out
+      float expansion = (2.0 + (uHighs * 14.0) + (noise * uHighs * 6.0)) * uExpLimit;
       float burstExpand = (uBurst * (10.0 + aRandom * 15.0)) * uExpLimit;
       float jitter = (aRandom - 0.5) * uHighs * 2.0;
 
@@ -112,10 +113,10 @@ function CorePulse({
 
       vec4 mv = modelViewMatrix * vec4(p, 1.0);
       
-      gl_PointSize = (3.0 + uBass * 4.0 + uBurst * 5.0) * (40.0 / -mv.z);
+      gl_PointSize = (4.0 + uHighs * 8.0 + uBurst * 5.0) * (40.0 / -mv.z);
       gl_Position = projectionMatrix * mv;
 
-      vAlpha = mix(0.5, 1.0, uBass) + uBurst;
+      vAlpha = mix(0.5, 1.0, uHighs) + uBurst;
     }
   `;
 
@@ -132,7 +133,7 @@ function CorePulse({
       
       // Rainbow based on time + vertical height
       float hue = mod(uColorTime + vPos.y * 0.05, 1.0);
-      vec3 color = hsl2rgb(vec3(hue, 0.8, 0.6));
+      vec3 color = hsl2rgb(vec3(hue, 0.8, 0.82));
 
       gl_FragColor = vec4(color, a * vAlpha);
     }
@@ -180,12 +181,14 @@ function TerrainField({
   smoothHighs,
   smoothBurst,
   uColorTime,
+  shimmerPhase,
 }: {
   smoothBass: React.MutableRefObject<number>;
   smoothMids: React.MutableRefObject<number>;
   smoothHighs: React.MutableRefObject<number>;
   smoothBurst: React.MutableRefObject<number>;
   uColorTime: React.MutableRefObject<number>;
+  shimmerPhase: React.MutableRefObject<number>;
 }) {
   const materialRef = useRef<THREE.ShaderMaterial>(null!);
   const groupRef = useRef<THREE.Group>(null!);
@@ -217,9 +220,11 @@ function TerrainField({
     () => ({
       uTime: { value: 0 },
       uBass: { value: 0 },
+      uMids: { value: 0 },
       uHighs: { value: 0 },
       uBurst: { value: 0 },
       uColorTime: { value: 0 },
+      uShimmerPhase: { value: 0 },
       uExpLimit: { value: SCENE_CONFIG.expansion.terrain }
     }),
     [],
@@ -258,7 +263,7 @@ function TerrainField({
       gl_Position = projectionMatrix * mv;
 
       float edgeFade = 1.0 - smoothstep(20.0, 60.0, r);
-      vAlpha = (0.2 + uBass * 0.8 + uBurst * 0.5 + uHighs * 0.3) * edgeFade;
+      vAlpha = (0.4 + uBass * 0.8 + uBurst * 0.5 + uHighs * 0.3) * edgeFade;
     }
   `;
 
@@ -268,6 +273,9 @@ function TerrainField({
     uniform float uColorTime;
     ${colorChunk}
 
+    uniform float uMids;
+    uniform float uShimmerPhase;
+
     void main() {
       float d = distance(gl_PointCoord, vec2(0.5));
       if (d > 0.5) discard;
@@ -276,9 +284,14 @@ function TerrainField({
       // Rainbow based on distance from center
       float r = length(vPos.xz);
       float hue = mod(uColorTime + r * 0.015, 1.0);
-      vec3 color = hsl2rgb(vec3(hue, 0.7, 0.5));
+      vec3 color = hsl2rgb(vec3(hue, 0.90, 0.78));
 
-      gl_FragColor = vec4(color, a * vAlpha);
+      // Mids-driven shimmer: a sharp radial ring of brightness sweeping outward
+      float shimmerRing = sin(r * 0.25 - uShimmerPhase) * 0.5 + 0.5;
+      shimmerRing = pow(shimmerRing, 4.0);
+      float finalAlpha = vAlpha + shimmerRing * uMids * 1.8;
+
+      gl_FragColor = vec4(color, a * finalAlpha);
     }
   `;
 
@@ -286,9 +299,11 @@ function TerrainField({
     if (materialRef.current) {
       materialRef.current.uniforms.uTime.value = state.clock.elapsedTime;
       materialRef.current.uniforms.uBass.value = smoothBass.current;
+      materialRef.current.uniforms.uMids.value = smoothMids.current;
       materialRef.current.uniforms.uHighs.value = smoothHighs.current;
       materialRef.current.uniforms.uBurst.value = smoothBurst.current;
       materialRef.current.uniforms.uColorTime.value = uColorTime.current;
+      materialRef.current.uniforms.uShimmerPhase.value = shimmerPhase.current;
     }
     if (groupRef.current) {
       groupRef.current.rotation.y += delta * (0.05 + smoothMids.current * 0.2);
@@ -323,12 +338,14 @@ function VaporTrails({
   smoothHighs,
   smoothBurst,
   uColorTime,
+  shimmerPhase,
 }: {
   smoothBass: React.MutableRefObject<number>;
   smoothMids: React.MutableRefObject<number>;
   smoothHighs: React.MutableRefObject<number>;
   smoothBurst: React.MutableRefObject<number>;
   uColorTime: React.MutableRefObject<number>;
+  shimmerPhase: React.MutableRefObject<number>;
 }) {
   const materialRef = useRef<THREE.ShaderMaterial>(null!);
   const groupRef = useRef<THREE.Group>(null!);
@@ -363,9 +380,11 @@ function VaporTrails({
     () => ({
       uTime: { value: 0 },
       uBass: { value: 0 },
+      uMids: { value: 0 },
       uHighs: { value: 0 },
       uBurst: { value: 0 },
       uColorTime: { value: 0 },
+      uShimmerPhase: { value: 0 },
       uExpLimit: { value: SCENE_CONFIG.expansion.vapor }
     }),
     [],
@@ -408,7 +427,7 @@ function VaporTrails({
       float coreProtect = smoothstep(6.0, 12.0, r);
       float edgeFade = 1.0 - smoothstep(20.0, 45.0, r);
       
-      vAlpha = (0.15 + uHighs * 0.5 + uBurst * 0.4 + uBass * 0.3) * edgeFade * coreProtect;
+      vAlpha = (0.35 + uHighs * 0.5 + uBurst * 0.4 + uBass * 0.3) * edgeFade * coreProtect;
     }
   `;
 
@@ -418,6 +437,9 @@ function VaporTrails({
     uniform float uColorTime;
     ${colorChunk}
 
+    uniform float uMids;
+    uniform float uShimmerPhase;
+
     void main() {
       float d = distance(gl_PointCoord, vec2(0.5));
       float blur = exp(-d * 6.0);
@@ -425,9 +447,14 @@ function VaporTrails({
       // Rainbow based on angle (theta) around scene + time
       float r = length(vPos.xz);
       float hue = mod(uColorTime + r * 0.01, 1.0);
-      vec3 color = hsl2rgb(vec3(hue, 0.8, 0.5));
+      vec3 color = hsl2rgb(vec3(hue, 0.95, 0.78));
 
-      gl_FragColor = vec4(color, blur * vAlpha);
+      // Mids-driven shimmer: a sharp radial ring of brightness sweeping outward
+      float shimmerRing = sin(r * 0.25 - uShimmerPhase) * 0.5 + 0.5;
+      shimmerRing = pow(shimmerRing, 4.0);
+      float finalAlpha = vAlpha + shimmerRing * uMids * 1.3;
+
+      gl_FragColor = vec4(color, blur * finalAlpha);
     }
   `;
 
@@ -435,9 +462,11 @@ function VaporTrails({
     if (materialRef.current) {
       materialRef.current.uniforms.uTime.value = state.clock.elapsedTime;
       materialRef.current.uniforms.uBass.value = smoothBass.current;
+      materialRef.current.uniforms.uMids.value = smoothMids.current;
       materialRef.current.uniforms.uHighs.value = smoothHighs.current;
       materialRef.current.uniforms.uBurst.value = smoothBurst.current;
       materialRef.current.uniforms.uColorTime.value = uColorTime.current;
+      materialRef.current.uniforms.uShimmerPhase.value = shimmerPhase.current;
     }
     if (groupRef.current) {
       groupRef.current.rotation.y += delta * (0.08 + smoothMids.current * 0.25);
@@ -479,6 +508,9 @@ export default function MonochromeSymmetry({
   // Controls the rolling rainbow spectrum
   const uColorTime = useRef(0);
 
+  // Advances with mids energy — drives the shimmer ring in TerrainField and VaporTrails
+  const shimmerPhase = useRef(0);
+
   const lastBurstTime = useRef(0);
   const burstActive = useRef(false);
 
@@ -495,7 +527,10 @@ export default function MonochromeSymmetry({
     smoothHighs.current = THREE.MathUtils.lerp(smoothHighs.current, highs, delta * 16); 
 
     // Move the rainbow wheel forward
-    uColorTime.current += delta * 0.15; 
+    uColorTime.current += delta * 0.15;
+
+    // Advance shimmer phase — faster when mids are active, slow background drift otherwise
+    shimmerPhase.current += delta * (0.8 + smoothMids.current * 3.0);
 
     const elapsed = state.clock.elapsedTime;
     const cycleLength = 35;
@@ -540,6 +575,7 @@ export default function MonochromeSymmetry({
         smoothHighs={smoothHighs} 
         smoothBurst={smoothBurst} 
         uColorTime={uColorTime}
+        shimmerPhase={shimmerPhase}
       />
       
       <VaporTrails 
@@ -548,6 +584,7 @@ export default function MonochromeSymmetry({
         smoothHighs={smoothHighs} 
         smoothBurst={smoothBurst} 
         uColorTime={uColorTime}
+        shimmerPhase={shimmerPhase}
       />
 
       <OrbitControls

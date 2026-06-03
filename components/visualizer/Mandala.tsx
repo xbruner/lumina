@@ -205,15 +205,25 @@ function CameraRig() {
   const moveDuration = 7.5;
   const totalCycle = 30;
 
-  useFrame((state) => {
+  useFrame((state, delta) => {
     const t = state.clock.elapsedTime;
-    if (t < startDelay) return;
+
+    // Pre-delay: gently drift camera toward homePos so there's no jerk
+    // when the orbit rig takes over at t=startDelay
+    if (t < startDelay) {
+      state.camera.position.lerp(homePos, delta * 1.5);
+      state.camera.lookAt(0, 0, 0);
+      return;
+    }
 
     const cycleTime = (t - startDelay) % totalCycle;
 
     let alpha = 0;
     if (cycleTime < moveDuration) {
-      alpha = Math.sin((cycleTime / moveDuration) * Math.PI);
+      // Squared sine — forces derivative to zero at start AND end,
+      // so the camera eases out of rest with zero initial velocity (no jerk)
+      const s = Math.sin((cycleTime / moveDuration) * Math.PI);
+      alpha = s * s;
     }
 
     const angle = t * driftSpeed;
@@ -235,6 +245,8 @@ function SacredMandala({ audioData }: { audioData: Uint8Array | null }) {
   const mainMatRef = useRef<THREE.ShaderMaterial>(null);
   const centerGroupRef = useRef<THREE.Group>(null);
   const instancedMeshRef = useRef<THREE.InstancedMesh>(null);
+  // Smoothed activation — prevents the hard 0→1 jump from causing a one-frame amplitude spike
+  const activeSmooth = useRef(0);
 
   const borderMaterial = useMemo(() => new THREE.MeshBasicMaterial({ transparent: false, blending: THREE.AdditiveBlending }), []);
   const internalMaterial = useMemo(() => new THREE.MeshBasicMaterial({ transparent: false, blending: THREE.AdditiveBlending }), []);
@@ -355,14 +367,22 @@ function SacredMandala({ audioData }: { audioData: Uint8Array | null }) {
     }
   }, [matrices]);
 
-  useFrame((state) => {
+  useFrame((state, delta) => {
     const time = state.clock.elapsedTime;
     const { bass, mids, highs } = getThreeBands(audioData);
 
     const introProgress = Math.min(time / 11.0, 1.0);
     const ease = introProgress * introProgress * (3.0 - 2.0 * introProgress);
     const currentScale = 0.01 + ease * 0.99;
-    const isActive = time > 11.0 ? 1.0 : 0.0;
+
+    // Lerp toward 1 after intro — prevents the hard binary flip from
+    // causing an 11× amplitude jump in a single frame.
+    // delta * 0.5 gives a ~2s fade-in for a more gradual breathing onset.
+    activeSmooth.current = THREE.MathUtils.lerp(
+      activeSmooth.current,
+      time > 11.0 ? 1.0 : 0.0,
+      delta * 0.5
+    );
 
     if (groupRef.current) {
       groupRef.current.scale.set(currentScale, currentScale, currentScale);
@@ -374,10 +394,10 @@ function SacredMandala({ audioData }: { audioData: Uint8Array | null }) {
       mainMatRef.current.uniforms.uAudioBass.value = bass;
       mainMatRef.current.uniforms.uAudioMids.value = mids;
       mainMatRef.current.uniforms.uAudioHighs.value = highs;
-      mainMatRef.current.uniforms.uActive.value = isActive;
+      mainMatRef.current.uniforms.uActive.value = activeSmooth.current;
       const moveRadius = 0.2;
       const moveSpeed = 0.6;
-      const audioInfluence = 1.0 + (bass * 0.5 * isActive);
+      const audioInfluence = 1.0 + (bass * 0.5 * activeSmooth.current);
 
       mainMatRef.current.uniforms.uOriginOffset.value.set(
         Math.cos(time * moveSpeed) * moveRadius * audioInfluence,
@@ -386,11 +406,11 @@ function SacredMandala({ audioData }: { audioData: Uint8Array | null }) {
     }
 
     if (centerGroupRef.current) {
-      const pulse = 1 + bass * 0.35 * isActive;
+      const pulse = 1 + bass * 0.35 * activeSmooth.current;
       centerGroupRef.current.scale.setScalar(pulse);
     }
 
-    const midIntensity = mids * isActive;
+    const midIntensity = mids * activeSmooth.current;
 
     const blueHue = 0.58 + Math.sin(time * 1.4) * 0.04;
     const blueLightness = 0.38 + Math.sin(time * 2.4) * 0.09 + midIntensity * 0.09;

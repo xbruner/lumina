@@ -205,9 +205,109 @@ const { bass, mids, highs } = getThreeBands(audioData);
 
 Smooth ALL audio values with lerp inside `useFrame`. Never use raw values directly — they're too noisy.
 
+### Rule: Asymmetric attack / release (ALWAYS do this)
+
+Use different speeds for attack (going up) and release (going down). This makes the scene feel responsive without flickering on stutter sounds or fast repeated hits.
+
 ```tsx
-// Smooth approach (use delta * N where N = 5 for slow, 10 for medium, 20 for snappy)
-smoothBass.current = THREE.MathUtils.lerp(smoothBass.current, bass, delta * 8);
+// ✅ CORRECT — fast attack, slow release, always multiplied by delta
+const targetBass = bass; // from getThreeBands
+const lerpSpeed =
+  targetBass > smoothBass.current
+    ? delta * 20 // fast attack — catches 16th-note basslines
+    : delta * 3; // slow release — holds the hit, prevents flicker
+smoothBass.current = THREE.MathUtils.lerp(
+  smoothBass.current,
+  targetBass,
+  lerpSpeed,
+);
+
+// ❌ WRONG — symmetric, not multiplied by delta (frame-rate dependent, causes flicker)
+smoothBass.current = THREE.MathUtils.lerp(smoothBass.current, targetBass, 0.4);
+```
+
+Recommended multipliers by use case:
+
+| Use                          | Attack          | Release       |
+| ---------------------------- | --------------- | ------------- |
+| Primary pulse / scale (bass) | `delta * 15–20` | `delta * 2–4` |
+| Rotation / flow (mids)       | `delta * 10`    | `delta * 5`   |
+| Sparkle / glow (highs)       | `delta * 16`    | `delta * 8`   |
+
+### Two-tier bass strategy
+
+`getThreeBands` uses a **0.88 noise floor** on bass. This is intentional — it only fires on clear, intentional bass hits (kicks, 808s), preventing room noise and quiet passages from pumping the scene. **Do not lower this floor.**
+
+- **Primary reactions** (scale, expand, pulse) → always use `getThreeBands`. The 0.88 floor is your friend.
+- **Secondary / additive texture** (subtle glow, color shift) → use `binPeak(audioData, 0, 6)` from `@/lib/audioAnalysis` with a soft manual floor of ~0.3. `binPeak` returns the single loudest bin and has more dynamic range than the average, catching lighter bass hits that don't sustain:
+
+```tsx
+import { getThreeBands, binPeak } from "@/lib/audioAnalysis";
+
+// In useFrame:
+const { bass, mids, highs } = getThreeBands(audioData); // primary — 0.88 gated
+const softBass = Math.max(0, binPeak(audioData, 0, 6) - 0.3); // secondary — gentler
+```
+
+---
+
+## ACTIVATION TRANSITIONS
+
+Any time a value switches from 0 to 1 (intro complete, event starts), **never feed that binary directly to a uniform**. A hard flip multiplies shader amplitudes in a single frame, causing a visible pop or jerk.
+
+Always smooth the activation through a `useRef`:
+
+```tsx
+// ✅ CORRECT — fades in over ~1.5 seconds
+const activeSmooth = useRef(0);
+
+useFrame((state, delta) => {
+  activeSmooth.current = THREE.MathUtils.lerp(
+    activeSmooth.current,
+    time > introEnd ? 1.0 : 0.0,
+    delta * 0.7, // ~1.5s to reach 1.0
+  );
+  if (materialRef.current) {
+    materialRef.current.uniforms.uActive.value = activeSmooth.current;
+  }
+});
+
+// ❌ WRONG — one-frame amplitude jump
+const isActive = time > introEnd ? 1.0 : 0.0;
+materialRef.current.uniforms.uActive.value = isActive;
+```
+
+---
+
+## MOBILE PARTICLE COUNT
+
+Never set particle count to 0 on low-power devices. Use a minimum of **150 particles** to ensure the effect is always visible. The Particles component guard `{particleCount > 0 && <Particles />}` should never evaluate false.
+
+```tsx
+// ✅ CORRECT
+const particleCount = isLowPower ? 150 : isMobile ? 500 : 2000;
+
+// ❌ WRONG — particles vanish entirely on small phones
+const particleCount = isLowPower ? 0 : isMobile ? 500 : 2000;
+```
+
+---
+
+## CAMERA RIG HANDOFFS
+
+If you use a custom camera rig that takes over at a specific time (e.g., after an intro), pre-position the camera **before** the rig activates. Otherwise the first frame of rig control can jerk if OrbitControls or user interaction moved the camera away from the rig's expected start position.
+
+```tsx
+// ✅ CORRECT — gently drift toward home position before the rig takes over
+useFrame((state, delta) => {
+  const t = state.clock.elapsedTime;
+  if (t < startDelay) {
+    state.camera.position.lerp(homePos, delta * 1.5);
+    state.camera.lookAt(0, 0, 0);
+    return;
+  }
+  // ... rig logic
+});
 ```
 
 ---

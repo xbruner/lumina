@@ -56,7 +56,7 @@ function Core({ audioData }: { audioData: Uint8Array | null }) {
   const meshRef = useRef<THREE.Mesh>(null);
   const scale = useRef(1.0);
 
-  useFrame((state) => {
+  useFrame((state, delta) => {
     if (!meshRef.current) return;
 
     meshRef.current.rotation.y += 0.008;
@@ -64,13 +64,14 @@ function Core({ audioData }: { audioData: Uint8Array | null }) {
 
     if (audioData) {
       // Bass reaction: bins 0–6 (~0–275Hz) with crossover rolloff and noise gate
-      // Full weight 0-3, reduced weight 4-6 (rolloff from mids), noise floor 0.15
+      // Full weight 0-3, reduced weight 4-6 (rolloff from mids), noise floor 0.88
       const bassEnergy = weightedBandEnergy(audioData, [
         [0, 3, 1.0],   // Full bass range
         [4, 6, 0.2],   // Rolloff zone
       ], 0.88);
       const targetScale = 1.0 + bassEnergy * 0.4;
-      const lerpSpeed = targetScale < scale.current ? 0.85  : 0.4;
+      // Fast delta-based attack catches 16th notes; slow release holds the hit and prevents flicker
+      const lerpSpeed = targetScale > scale.current ? delta * 20 : delta * 3;
       scale.current = THREE.MathUtils.lerp(scale.current, targetScale, lerpSpeed);
     } else {
       // Gentle breathing when no audio
@@ -338,8 +339,8 @@ function Scene({ audioData }: { audioData: Uint8Array | null }) {
   const prefersReducedMotion = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const isLowPower = isMobile && (prefersReducedMotion || size.width < 480);
 
-  // Reduce particle count on mobile/low-power devices
-  const particleCount = isLowPower ? 0 : isMobile ? 500 : 2000;
+  // Reduce particle count on mobile/low-power devices; never zero so particles always render
+  const particleCount = isLowPower ? 150 : isMobile ? 500 : 2000;
 
   const pos: [number, number, number] = isMobile ? [0, 0, -4.0] : [0, 0, 0];
 
