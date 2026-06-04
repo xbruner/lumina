@@ -69,15 +69,23 @@ export function useAudio(src: string): UseAudioReturn {
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
 
       const poll = () => {
-        if (!howl.playing()) return;
-        const time = howl.seek() as number;
-        const dur = howl.duration();
+        // Howler's HTML5 seek path can briefly report !playing() while it
+        // internally pauses, updates currentTime, then resumes. Those internal
+        // pause/play calls don't always emit public events, so if this RAF loop
+        // self-terminates on that transient state, playbackTime freezes and the
+        // precomputed visualizer frames stop tracking the real audio position.
+        if (howlRef.current !== howl) return;
 
-        playbackTime.current = time;
-        playbackTime.duration = dur;
+        if (howl.playing()) {
+          const time = howl.seek() as number;
+          const dur = howl.duration();
 
-        setCurrentTime(time);
-        if (dur > 0) setProgress(time / dur);
+          playbackTime.current = time;
+          playbackTime.duration = dur;
+
+          setCurrentTime(time);
+          if (dur > 0) setProgress(time / dur);
+        }
 
         rafRef.current = requestAnimationFrame(poll);
       };
@@ -217,13 +225,25 @@ export function useAudio(src: string): UseAudioReturn {
 
   const seek = useCallback(
     (time: number) => {
-      if (!howlRef.current || !isLoaded) return;
-      howlRef.current.seek(time);
+      const howl = howlRef.current;
+      if (!howl || !isLoaded) return;
+
+      const wasPlaying = howl.playing();
+      howl.seek(time);
       setCurrentTime(time);
       playbackTime.current = time;
       if (duration > 0) setProgress(time / duration);
+
+      // Re-arm the progress poll after seeks while playing. This covers the
+      // same Howler HTML5 transient pause path described above and keeps the
+      // visualizer frame cursor locked to the real audio position.
+      if (wasPlaying) {
+        setTimeout(() => {
+          if (howlRef.current === howl) startProgressPoll(howl);
+        }, 0);
+      }
     },
-    [isLoaded, duration, setProgress],
+    [isLoaded, duration, setProgress, startProgressPoll],
   );
 
   const setVolumeLevel = useCallback((vol: number) => {

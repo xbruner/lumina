@@ -28,6 +28,10 @@ const config: LuminaConfig = {
         type: "reactive",
         scene: "translation",
       },
+      lyrics: {
+        type: "timed",
+        src: "/lyrics/track1.lrc",
+      },
     },
     {
       id: "track-02",
