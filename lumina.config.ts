@@ -35,11 +35,15 @@ const config: LuminaConfig = {
     },
     {
       id: "track-02",
-      title: "Grateful",
+      title: "Grateful (feat. Mickey Shiloh)",
       src: "/tracks/Grateful.mp3",
       visual: {
         type: "reactive",
         scene: "flower",
+      },
+      lyrics: {
+        type: "timed",
+        src: "/lyrics/track2.lrc",
       },
     },
     {
