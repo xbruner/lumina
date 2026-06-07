@@ -39,7 +39,7 @@ const config: LuminaConfig = {
       src: "/tracks/Grateful.mp3",
       visual: {
         type: "reactive",
-        scene: "flower",
+        scene: "sloworbit",
       },
       lyrics: {
         type: "timed",
@@ -52,7 +52,7 @@ const config: LuminaConfig = {
       src: "/tracks/Trap(ped).mp3",
       visual: {
         type: "reactive",
-        scene: "dimensional",
+        scene: "flower",
       },
       lyrics: {
         type: "timed",
