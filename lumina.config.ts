@@ -62,7 +62,7 @@ const config: LuminaConfig = {
     {
       id: "track-04",
       title: "Drunk On The Mic by Mickey Shiloh (DOTM Remix)",
-      src: "/tracks/DrunkOnTheMic_21.mp3",
+      src: "/tracks/DrunkOnTheMic_22.mp3",
       visual: {
         type: "reactive",
         scene: "mandala",
