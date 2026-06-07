@@ -54,6 +54,10 @@ const config: LuminaConfig = {
         type: "reactive",
         scene: "dimensional",
       },
+      lyrics: {
+        type: "timed",
+        src: "/lyrics/track3.lrc",
+      },
     },
     {
       id: "track-04",
