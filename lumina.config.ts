@@ -22,15 +22,15 @@ const config: LuminaConfig = {
   tracks: [
     {
       id: "track-01",
-      title: "Wayfaring Stranger",
-      src: "/tracks/Wayfairing_Vocals.mp3",
+      title: "Trap(ped)",
+      src: "/tracks/Trap(ped).mp3",
       visual: {
         type: "reactive",
-        scene: "translation",
+        scene: "flower",
       },
       lyrics: {
         type: "timed",
-        src: "/lyrics/track1.lrc",
+        src: "/lyrics/track3.lrc",
       },
     },
     {
@@ -48,15 +48,15 @@ const config: LuminaConfig = {
     },
     {
       id: "track-03",
-      title: "Trap(ped)",
-      src: "/tracks/Trap(ped).mp3",
+      title: "Wayfaring Stranger",
+      src: "/tracks/Wayfairing_Vocals.mp3",
       visual: {
         type: "reactive",
-        scene: "flower",
+        scene: "translation",
       },
       lyrics: {
         type: "timed",
-        src: "/lyrics/track3.lrc",
+        src: "/lyrics/track1.lrc",
       },
     },
     {

@@ -24,29 +24,6 @@ export function PlayerShell() {
   const { hasLyrics } = useLyrics();
   const { nextTrack, prevTrack } = usePlaylist();
 
-  // ── Mobile viewport height ────────────────────────────────────────────────
-  // iOS Safari changes the viewport height as the address bar shows/hides.
-  // We track the actual visible height via visualViewport and set --app-height
-  // so the shell always fits exactly without scrolling or clipping.
-  useEffect(() => {
-    const updateAppHeight = () => {
-      const h = window.visualViewport?.height ?? window.innerHeight;
-      document.documentElement.style.setProperty("--app-height", `${h}px`);
-    };
-
-    updateAppHeight(); // run immediately on mount
-
-    window.visualViewport?.addEventListener("resize", updateAppHeight);
-    window.visualViewport?.addEventListener("scroll", updateAppHeight);
-    window.addEventListener("resize", updateAppHeight);
-
-    return () => {
-      window.visualViewport?.removeEventListener("resize", updateAppHeight);
-      window.visualViewport?.removeEventListener("scroll", updateAppHeight);
-      window.removeEventListener("resize", updateAppHeight);
-    };
-  }, []);
-
   // ── Mobile "scroll-to-hide" — collapse browser chrome on load ─────────────
   // Companion to the html { height: 110vh; overflow: hidden } CSS.
   // Issuing a tiny scroll triggers Android Chrome / iOS Safari to retract
@@ -160,9 +137,8 @@ export function PlayerShell() {
 
   return (
     <div
-      className="relative w-full bg-background overflow-hidden"
+      className="fixed inset-0 bg-background overflow-hidden"
       style={{
-        height: "var(--app-height)",
         cursor: isIdle ? "none" : "default",
       }}
     >
