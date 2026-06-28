@@ -26,7 +26,7 @@ const config: LuminaConfig = {
       src: "/tracks/Trap(ped).mp3",
       visual: {
         type: "reactive",
-        scene: "flower",
+        scene: "auroraplanet",
       },
       lyrics: {
         type: "timed",
