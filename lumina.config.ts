@@ -22,15 +22,10 @@ const config: LuminaConfig = {
   tracks: [
     {
       id: "track-01",
-      title: "Trap(ped)",
-      src: "/tracks/Trap(ped).mp3",
+      title: "Trapped",
       visual: {
-        type: "reactive",
-        scene: "auroraplanet",
-      },
-      lyrics: {
-        type: "timed",
-        src: "/lyrics/track3.lrc",
+        type: "video",
+        src: "https://youtu.be/6iFVTi7sOcU",
       },
     },
     {
