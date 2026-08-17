@@ -27,6 +27,10 @@ const config: LuminaConfig = {
         type: "video",
         src: "https://youtu.be/6iFVTi7sOcU",
       },
+      lyrics: {
+        type: "timed",
+        src: "/lyrics/trapped.lrc",
+      },
     },
     {
       id: "track-02",
